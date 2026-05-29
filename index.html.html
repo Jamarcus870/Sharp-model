@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sharp Terminal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&display=swap');
+  :root {
+    --bg: #060810; --panel: #0B0D16; --border: #141828; --border2: #1E2235;
+    --text: #C8CCE0; --dim: #4A4E6A; --green: #00E5A0; --yellow: #FFD166;
+    --red: #FF4D6D; --blue: #4D9EFF; --orange: #FF8C42;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', monospace; min-height: 100vh; }
+  input, select, textarea { background: var(--bg); border: 1px solid var(--border2); border-radius: 5px; padding: 7px 10px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: var(--text); outline: none; width: 100%; }
+  input::placeholder, textarea::placeholder { color: #2A2E45; }
+  select option { background: var(--panel); }
+  button { cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: 700; letter-spacing: 0.12em; border: none; border-radius: 6px; transition: opacity .15s; }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .panel-title { font-size: 9px; font-weight: 700; letter-spacing: 0.18em; margin-bottom: 14px; }
+  .label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; color: var(--dim); margin-bottom: 5px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .stat-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 8px; text-align: center; }
+  .stat-val { font-size: 20px; font-weight: 700; line-height: 1; }
+  .stat-sub { font-size: 9px; margin-top: 2px; }
+  .stat-label { font-size: 8px; color: var(--dim); letter-spacing: 0.1em; margin-top: 4px; }
+  .chip { display: inline-block; border-radius: 3px; padding: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; }
+  .check-row { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 11px; align-items: center; }
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 0; }
+  .tab { flex: 1; padding: 7px 4px; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--dim); }
+  .tab.active { }
+  .content { display: none; }
+  .content.active { display: block; }
+  .btn-green { background: linear-gradient(135deg, var(--green), var(--blue)); color: var(--bg); padding: 11px 18px; font-size: 11px; width: 100%; }
+  .btn-yellow { background: linear-gradient(135deg, var(--yellow), var(--orange)); color: var(--bg); padding: 11px 18px; font-size: 11px; width: 100%; }
+  .btn-blue { background: linear-gradient(135deg, var(--blue), #7B5FF5); color: var(--bg); padding: 11px 18px; font-size: 11px; width: 100%; }
+  .btn-sm { padding: 6px 14px; font-size: 10px; }
+  .sport-btn { padding: 4px 11px; font-size: 10px; background: var(--bg); border: 1px solid var(--border2); color: var(--dim); border-radius: 4px; }
+  .sport-btn.active { background: rgba(0,229,160,0.12); border-color: var(--green); color: var(--green); }
+  .verdict-lock { color: var(--green); }
+  .verdict-lean { color: var(--yellow); }
+  .verdict-pass { color: var(--red); }
+  .prop-card { border-left: 3px solid; border-radius: 8px; padding: 14px; margin-bottom: 10px; background: var(--panel); }
+  ::-webkit-scrollbar { width: 3px; } ::-webkit-scrollbar-track { background: var(--bg); } ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .drop-zone { border: 2px dashed var(--border2); border-radius: 10px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all .2s; background: var(--panel); }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--green); background: rgba(0,229,160,0.05); }
+  .drop-zone img { max-height: 300px; max-width: 100%; object-fit: contain; }
+  #api-key-banner { background: rgba(255,140,66,0.1); border: 1px solid var(--orange); border-radius: 8px; padding: 14px; margin-bottom: 14px; font-size: 11px; line-height: 1.6; }
+  .analyzing-overlay { text-align: center; padding: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
+  .pulse { animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .extracted-prop { background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; padding: 10px 14px; margin-bottom: 6px; cursor: pointer; transition: border-color .15s; }
+  .extracted-prop:hover { border-color: var(--green); }
+  .extracted-prop.selected { border-color: var(--green); background: rgba(0,229,160,0.06); }
+</style>
+
+</head>
+<body>
+
+<!-- HEADER -->
+<div style="background:var(--panel);border-bottom:1px solid var(--border);padding:14px 18px;position:sticky;top:0;z-index:99;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#00E5A0,#4D9EFF);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">⚡</div>
+      <div>
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.2em;color:var(--green);">SHARP TERMINAL</div>
+        <div style="font-size:8px;color:var(--dim);letter-spacing:0.12em;">PROP INTELLIGENCE DASHBOARD</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <div style="background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.3);border-radius:5px;padding:4px 10px;text-align:center;">
+        <div id="rec-w" style="font-size:16px;font-weight:700;color:var(--green);line-height:1;">0</div>
+        <div style="font-size:7px;color:var(--dim);letter-spacing:0.1em;">W</div>
+      </div>
+      <div style="background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.3);border-radius:5px;padding:4px 10px;text-align:center;">
+        <div id="rec-l" style="font-size:16px;font-weight:700;color:var(--red);line-height:1;">0</div>
+        <div style="font-size:7px;color:var(--dim);letter-spacing:0.1em;">L</div>
+      </div>
+      <div id="rec-pct-box" style="display:none;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.3);border-radius:5px;padding:4px 10px;text-align:center;">
+        <div id="rec-pct" style="font-size:16px;font-weight:700;color:var(--green);line-height:1;">—</div>
+        <div style="font-size:7px;color:var(--dim);letter-spacing:0.1em;">WIN%</div>
+      </div>
+    </div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab active" id="tab-scan" style="color:var(--green);border-color:var(--green);background:rgba(0,229,160,0.1);" onclick="switchTab('scan')">📸 SCAN</button>
+    <button class="tab" id="tab-calc" onclick="switchTab('calc')">HIT CALC</button>
+    <button class="tab" id="tab-park" onclick="switchTab('park')">PARK</button>
+    <button class="tab" id="tab-card" onclick="switchTab('card')">CARD</button>
+    <button class="tab" id="tab-scanner" onclick="switchTab('scanner')">📡 SCANNER</button>
+  </div>
+</div>
+
+<div style="max-width:680px;margin:0 auto;padding:16px 14px 60px;">
+
+<!-- ═══ SCAN TAB ═══ -->
+<div class="content active" id="content-scan">
+
+  <!-- API Key input -->
+  <div id="api-key-banner">
+    <div style="color:var(--orange);font-weight:700;margin-bottom:8px;font-size:10px;letter-spacing:0.12em;">⚡ ONE-TIME SETUP — ANTHROPIC API KEY</div>
+    <div style="color:var(--dim);margin-bottom:10px;">This tool uses Claude's vision to read your prop screenshots. Enter your API key once — it stays in your browser only, never sent anywhere else.</div>
+    <div style="display:flex;gap:8px;">
+      <input type="password" id="api-key-input" placeholder="sk-ant-..." style="flex:1;"/>
+      <button onclick="saveApiKey()" style="background:var(--orange);color:var(--bg);padding:7px 14px;font-size:10px;border-radius:5px;flex-shrink:0;">SAVE</button>
+    </div>
+    <div id="api-key-status" style="font-size:10px;color:var(--dim);margin-top:6px;"></div>
+    <div style="font-size:9px;color:var(--dim);margin-top:8px;">Get your key at: console.anthropic.com → API Keys</div>
+  </div>
+
+  <div class="panel" style="border-top-color:var(--green);border-top-width:2px;">
+    <div class="panel-title" style="color:var(--green);">UPLOAD PROP SCREENSHOT</div>
+    <div style="font-size:10px;color:var(--dim);margin-bottom:12px;line-height:1.6;">
+      Screenshot your Underdog or PrizePicks card → upload here → Claude reads every line automatically.
+    </div>
+
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)">
+      <div id="drop-content">
+        <div style="font-size:32px;margin-bottom:10px;">📱</div>
+        <div style="font-size:13px;color:var(--dim);margin-bottom:4px;">Drop screenshot or tap to upload</div>
+        <div style="font-size:10px;color:#2A2E45;">Works with Underdog, PrizePicks, DraftKings, any book</div>
+      </div>
+    </div>
+    <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handleFileSelect(event)"/>
+
+    <div style="margin-top:12px;">
+      <div class="label" style="margin-bottom:6px;">SPORT CONTEXT (OPTIONAL)</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+        <button class="sport-btn active" id="scan-sport-ALL" onclick="setScanSport('ALL')">ALL</button>
+        <button class="sport-btn" id="scan-sport-MLB" onclick="setScanSport('MLB')">MLB</button>
+        <button class="sport-btn" id="scan-sport-NBA" onclick="setScanSport('NBA')">NBA</button>
+        <button class="sport-btn" id="scan-sport-WNBA" onclick="setScanSport('WNBA')">WNBA</button>
+        <button class="sport-btn" id="scan-sport-NFL" onclick="setScanSport('NFL')">NFL</button>
+      </div>
+      <div id="scan-status" style="display:none;font-size:11px;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;margin-bottom:10px;line-height:1.5;"></div>
+      <button class="btn-green" id="scan-btn" onclick="scanImage()">📸 SCAN & EXTRACT LINES</button>
+    </div>
+  </div>
+
+  <!-- Analyzing state -->
+  <div id="analyzing-div" style="display:none;" class="analyzing-overlay">
+    <div style="font-size:11px;color:var(--green);letter-spacing:0.15em;margin-bottom:12px;" class="pulse">READING SCREENSHOT...</div>
+    <div style="font-size:10px;color:var(--dim);">Extracting all prop lines, payouts, and directions</div>
+  </div>
+
+  <!-- Extracted results -->
+  <div id="extracted-div" style="display:none;">
+    <div class="panel" style="border-top-color:var(--green);border-top-width:2px;">
+      <div class="panel-title" style="color:var(--green);">EXTRACTED LINES — TAP TO LOAD INTO CALC</div>
+      <div id="extracted-list"></div>
+    </div>
+
+    <div class="panel" style="border-top-color:var(--blue);border-top-width:2px;">
+      <div class="panel-title" style="color:var(--blue);">RAW ANALYSIS</div>
+      <div id="raw-analysis" style="font-size:11px;line-height:1.7;color:var(--text);white-space:pre-wrap;"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ CALC TAB ═══ -->
+<div class="content" id="content-calc">
+  <div class="panel" style="border-top:2px solid var(--green);">
+    <div class="panel-title" style="color:var(--green);">PROP DETAILS</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;" id="calc-sport-btns">
+      <button class="sport-btn active" onclick="setCalcSport('MLB')">MLB</button>
+      <button class="sport-btn" onclick="setCalcSport('NBA')">NBA</button>
+      <button class="sport-btn" onclick="setCalcSport('WNBA')">WNBA</button>
+      <button class="sport-btn" onclick="setCalcSport('NFL')">NFL</button>
+      <button class="sport-btn" onclick="setCalcSport('NHL')">NHL</button>
+    </div>
+    <div class="grid2" style="margin-bottom:9px;">
+      <div style="grid-column:1/-1;"><div class="label">PLAYER</div><input id="c-player" placeholder="e.g. Zack Wheeler"/></div>
+      <div><div class="label">STAT TYPE</div>
+        <select id="c-stat">
+          <option>Strikeouts</option><option>Walks</option><option>Outs Recorded</option>
+          <option>Hits</option><option>ERs</option><option>Pitches</option>
+          <option>Points</option><option>Rebounds</option><option>Assists</option>
+          <option>PRA</option><option>3PM</option><option>R+A</option>
+          <option>P+R</option><option>P+A</option><option>Steals</option>
+        </select>
+      </div>
+      <div><div class="label">DIRECTION</div>
+        <select id="c-dir">
+          <option value="higher">Higher (Over)</option>
+          <option value="lower">Lower (Under)</option>
+        </select>
+      </div>
+      <div><div class="label">LINE</div><input id="c-line" type="number" placeholder="e.g. 6.5"/></div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <div class="label">GAME LOG — newest first, comma separated</div>
+      <textarea id="c-log" rows="3" placeholder="e.g. 8, 7, 4, 9, 6, 7, 5, 8, 3, 7"></textarea>
+      <div id="c-log-count" style="font-size:8px;color:var(--dim);margin-top:3px;">0 games · recency 40/30/20/10</div>
+    </div>
+    <button class="btn-green" onclick="runCalc()">⚡ CALCULATE</button>
+  </div>
+
+  <div id="calc-result" style="display:none;"></div>
+</div>
+
+<!-- ═══ PARK TAB ═══ -->
+<div class="content" id="content-park">
+  <div class="panel" style="border-top:2px solid var(--orange);">
+    <div class="panel-title" style="color:var(--orange);">PARK FACTOR CHECKER</div>
+    <div style="margin-bottom:10px;"><div class="label">SELECT BALLPARK</div>
+      <select id="park-select" onchange="updatePark()">
+        <option value="">— Select park —</option>
+        <option value="1.28|Most hitter-friendly park in baseball">Coors Field (1.28)</option>
+        <option value="1.09|LH hitter friendly — short porch">Yankee Stadium (1.09)</option>
+        <option value="1.08|Hitter friendly — Green Monster">Fenway Park (1.08)</option>
+        <option value="1.06|Slightly hitter friendly">Great American BP (1.06)</option>
+        <option value="1.04|Wind dependent — check daily">Wrigley Field (1.04)</option>
+        <option value="1.03|Neutral — indoor AC">Chase Field (1.03)</option>
+        <option value="1.02|Slight hitter lean">Truist Park (1.02)</option>
+        <option value="0.98|Neutral — retractable roof">Minute Maid Park (0.98)</option>
+        <option value="0.97|Slight pitcher lean — cold suppresses bats">Target Field (0.97)</option>
+        <option value="0.97|Neutral — indoor retractable">Globe Life Field (0.97)</option>
+        <option value="0.96|Slight pitcher lean">Dodger Stadium (0.96)</option>
+        <option value="0.95|Pitcher friendly — large outfield">Kauffman Stadium (0.95)</option>
+        <option value="0.94|Pitcher friendly — suppresses HRs and Ks">Comerica Park (0.94)</option>
+        <option value="0.91|Pitcher friendly — large outfield">Petco Park (0.91)</option>
+        <option value="0.87|Pitcher friendly — marine layer">Oracle Park (0.87)</option>
+      </select>
+    </div>
+    <div><div class="label">OR ENTER CUSTOM FACTOR</div><input id="park-custom" type="number" placeholder="e.g. 1.12" oninput="updatePark()"/></div>
+  </div>
+  <div id="park-result"></div>
+</div>
+
+<!-- ═══ CARD TAB ═══ -->
+<div class="content" id="content-card">
+  <button onclick="toggleAddForm()" style="width:100%;background:var(--panel);border:2px dashed var(--border2);color:var(--dim);padding:12px;font-size:11px;border-radius:8px;margin-bottom:12px;" id="add-btn">+ ADD PROP TO CARD</button>
+
+  <div id="add-form" style="display:none;" class="panel" style="border-top:2px solid var(--blue);">
+    <div class="panel-title" style="color:var(--blue);">NEW PROP</div>
+    <div class="grid2" style="margin-bottom:8px;">
+      <div style="grid-column:1/-1;"><div class="label">PLAYER</div><input id="f-player" placeholder="Player name"/></div>
+      <div><div class="label">SPORT</div><select id="f-sport"><option>MLB</option><option>NBA</option><option>WNBA</option><option>NFL</option><option>NHL</option></select></div>
+      <div><div class="label">DIRECTION</div><select id="f-dir"><option value="higher">Higher</option><option value="lower">Lower</option></select></div>
+      <div><div class="label">STAT</div><input id="f-stat" placeholder="e.g. Strikeouts"/></div>
+      <div><div class="label">LINE</div><input id="f-line" type="number" placeholder="e.g. 6.5"/></div>
+      <div><div class="label">HIT RATE</div><input id="f-hr" placeholder="e.g. 80%"/></div>
+      <div><div class="label">CUSHION</div><input id="f-cush" placeholder="e.g. +1.4"/></div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <div class="label">VERDICT</div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="setFormVerdict('LOCK')" id="fv-LOCK" style="flex:1;padding:7px;font-size:10px;background:rgba(0,229,160,0.15);border:1px solid var(--green);color:var(--green);border-radius:5px;">LOCK</button>
+        <button onclick="setFormVerdict('LEAN')" id="fv-LEAN" style="flex:1;padding:7px;font-size:10px;background:var(--bg);border:1px solid var(--border2);color:var(--dim);border-radius:5px;">LEAN</button>
+        <button onclick="setFormVerdict('PASS')" id="fv-PASS" style="flex:1;padding:7px;font-size:10px;background:var(--bg);border:1px solid var(--border2);color:var(--dim);border-radius:5px;">PASS</button>
+      </div>
+    </div>
+    <div style="margin-bottom:12px;"><div class="label">KEY EDGE</div><input id="f-notes" placeholder="e.g. 10/11 starts cleared, 0.81x book signal"/></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-blue" style="flex:1;" onclick="addToCard()">🔒 ADD TO CARD</button>
+      <button onclick="toggleAddForm()" style="background:var(--panel);border:1px solid var(--border2);color:var(--dim);padding:10px 16px;font-size:10px;border-radius:6px;flex-shrink:0;">CANCEL</button>
+    </div>
+  </div>
+
+  <div id="card-empty" style="text-align:center;padding:40px 20px;color:var(--dim);">
+    <div style="font-size:28px;margin-bottom:8px;">🎯</div>
+    <div style="font-size:11px;">No props on the card yet</div>
+  </div>
+
+  <div id="card-list"></div>
+  <div id="settled-section" style="display:none;margin-top:20px;">
+    <div class="label" style="margin-bottom:8px;">SETTLED</div>
+    <div id="settled-list"></div>
+  </div>
+</div>
+
+
+<!-- ═══ SCANNER TAB ═══ -->
+<div class="content" id="content-scanner">
+
+  <div class="panel" style="border-top:2px solid #FF6B35;">
+    <div class="panel-title" style="color:#FF6B35;">📡 LIVE PROP SCANNER</div>
+    <div style="font-size:10px;color:var(--dim);margin-bottom:14px;line-height:1.6;">
+      Pulls live PrizePicks props every 30 minutes and flags sharp value automatically. Checks book signal, line position, and known player averages.
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <button onclick="setScannerSport('ALL')" id="ss-ALL" class="sport-btn active" style="border-color:#FF6B35;color:#FF6B35;background:rgba(255,107,53,0.1);">ALL</button>
+      <button onclick="setScannerSport('MLB')" id="ss-MLB" class="sport-btn">MLB</button>
+      <button onclick="setScannerSport('NBA')" id="ss-NBA" class="sport-btn">NBA</button>
+      <button onclick="setScannerSport('WNBA')" id="ss-WNBA" class="sport-btn">WNBA</button>
+      <button onclick="setScannerSport('NFL')" id="ss-NFL" class="sport-btn">NFL</button>
+    </div>
+
+
+
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button onclick="startScanner()" id="scanner-start-btn" style="flex:1;background:linear-gradient(135deg,#FF6B35,#FF8C42);color:var(--bg);padding:11px;font-size:11px;font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:0.14em;border:none;border-radius:6px;cursor:pointer;">
+        ▶ START SCANNING
+      </button>
+      <button onclick="stopScanner()" id="scanner-stop-btn" style="flex:1;background:var(--panel);border:1px solid var(--border2);color:var(--dim);padding:11px;font-size:11px;font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:0.14em;border-radius:6px;cursor:pointer;" disabled>
+        ■ STOP
+      </button>
+    </div>
+
+    <div id="scanner-status" style="font-size:10px;color:var(--dim);text-align:center;padding:8px;"></div>
+  </div>
+
+  <!-- Alert feed -->
+  <div id="scanner-alerts-section" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="label" style="color:#FF6B35;margin-bottom:0;">⚡ SHARP VALUE ALERTS</div>
+      <button onclick="clearAlerts()" style="background:transparent;border:none;color:var(--dim);font-size:10px;font-family:'IBM Plex Mono',monospace;cursor:pointer;letter-spacing:0.08em;">CLEAR</button>
+    </div>
+    <div id="scanner-alerts"></div>
+  </div>
+
+  <!-- All props feed -->
+  <div id="scanner-all-section" style="display:none;margin-top:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="label" style="margin-bottom:0;">ALL PROPS — <span id="scanner-count">0</span> LOADED</div>
+      <div id="scanner-last-update" style="font-size:9px;color:var(--dim);"></div>
+    </div>
+    <div id="scanner-search-wrap" style="margin-bottom:10px;">
+      <input id="scanner-search" oninput="filterScannerProps()" placeholder="Search player or stat..." style="width:100%;"/>
+    </div>
+    <div id="scanner-props-list"></div>
+  </div>
+
+</div>
+
+</div><!-- end main -->
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let state = {
+  apiKey: localStorage.getItem('sharp_api_key') || '',
+  scanSport: 'ALL',
+  calcSport: 'MLB',
+  formVerdict: 'LOCK',
+  imgBase64: null,
+  card: [],
+  record: { w: 0, l: 0 },
+};
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+if (state.apiKey) {
+  document.getElementById('api-key-input').value = state.apiKey;
+  document.getElementById('api-key-status').textContent = '✓ API key loaded';
+  document.getElementById('api-key-status').style.color = 'var(--green)';
+  checkScanReady();
+}
+
+document.getElementById('c-log').addEventListener('input', function() {
+  const nums = this.value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+  document.getElementById('c-log-count').textContent = `${nums.length} games · recency 40/30/20/10`;
+});
+
+
+
+// ─── API KEY ─────────────────────────────────────────────────────────────────
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key.startsWith('sk-ant-')) {
+    document.getElementById('api-key-status').textContent = '⚠ Key should start with sk-ant-';
+    document.getElementById('api-key-status').style.color = 'var(--yellow)';
+    return;
+  }
+  state.apiKey = key;
+  localStorage.setItem('sharp_api_key', key);
+  document.getElementById('api-key-status').textContent = '✓ Saved — ready to scan';
+  checkScanReady();
+  document.getElementById('api-key-status').style.color = 'var(--green)';
+  checkScanReady();
+}
+
+function checkScanReady() {
+  const ready = state.apiKey && state.imgBase64;
+  document.getElementById('scan-btn').disabled = !ready;
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+const TAB_ACCENTS = { scan:'var(--green)', calc:'var(--green)', park:'var(--orange)', card:'var(--blue)', scanner:'#FF6B35' };
+function switchTab(id) {
+  ['scan','calc','park','card','scanner'].forEach(t => {
+    document.getElementById('tab-'+t).className = 'tab';
+    document.getElementById('tab-'+t).style.color = 'var(--dim)';
+    document.getElementById('tab-'+t).style.borderColor = 'var(--border)';
+    document.getElementById('tab-'+t).style.background = 'var(--bg)';
+    document.getElementById('content-'+t).className = 'content';
+  });
+  const tab = document.getElementById('tab-'+id);
+  tab.className = 'tab active';
+  tab.style.color = TAB_ACCENTS[id];
+  tab.style.borderColor = TAB_ACCENTS[id];
+  tab.style.background = TAB_ACCENTS[id].replace(')', ',0.1)').replace('var(--','rgba(').replace('--green','0,229,160').replace('--yellow','255,209,102').replace('--orange','255,140,66').replace('--blue','77,158,255');
+  document.getElementById('content-'+id).className = 'content active';
+}
+
+// ─── IMAGE HANDLING ───────────────────────────────────────────────────────────
+function handleFileSelect(e) { if (e.target.files[0]) processFile(e.target.files[0]); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+}
+
+function processFile(file) {
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxW = 900;
+      const scale = img.width > maxW ? maxW / img.width : 1;
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const compressed = canvas.toDataURL('image/jpeg', 0.85);
+      state.imgBase64 = compressed.split(',')[1];
+      const dz = document.getElementById('drop-zone');
+      dz.innerHTML = `<img src="${compressed}"/><div style="font-size:10px;color:var(--dim);margin-top:8px;">Tap to replace</div>`;
+      checkScanReady();
+      document.getElementById('extracted-div').style.display = 'none';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── SCAN ─────────────────────────────────────────────────────────────────────
+function setScanSport(s) {
+  ['ALL','MLB','NBA','WNBA','NFL'].forEach(x => {
+    const btn = document.getElementById('scan-sport-'+x);
+    if (btn) { btn.className = 'sport-btn' + (x===s?' active':''); }
+  });
+  state.scanSport = s;
+}
+
+async function scanImage() {
+  // Show status on screen instead of silent failures
+  const statusEl = document.getElementById('scan-status');
+
+  if (!state.imgBase64) {
+    statusEl.textContent = '⚠ No image loaded — please upload a screenshot first';
+    statusEl.style.color = 'var(--yellow)';
+    statusEl.style.display = 'block';
+    return;
+  }
+  if (!state.apiKey) {
+    statusEl.textContent = '⚠ No API key — enter your sk-ant- key above and hit SAVE';
+    statusEl.style.color = 'var(--yellow)';
+    statusEl.style.display = 'block';
+    return;
+  }
+
+  statusEl.style.display = 'none';
+  document.getElementById('analyzing-div').style.display = 'block';
+  document.getElementById('extracted-div').style.display = 'none';
+
+  const prompt = `You are a sports prop betting analyst reading a screenshot from a betting app.
+
+Extract EVERY prop line visible in this image. For each line provide:
+1. Player name
+2. Stat type (e.g. Points, Strikeouts, Rebounds, Assists, PRA, R+A, Walks, Outs)
+3. Line number
+4. Direction (Higher/Lower or Over/Under)
+5. Payout multiplier if visible (e.g. 0.89x, 1.03x)
+
+Then for each line give a ONE-LINE sharp analysis based on your knowledge of this player's 2025-26 season stats:
+- Season average for this stat
+- Whether the line is above/below their average
+- Quick verdict: LOCK / LEAN / PASS and why in one sentence
+
+Format each prop EXACTLY like this (one per line):
+PROP: [Player] | [Stat] | [Line] | [Direction] | [Payout or N/A]
+AVG: [their season average]
+VERDICT: [LOCK/LEAN/PASS] — [one sentence reason]
+---
+
+Sport context: ${state.scanSport === 'ALL' ? 'Could be any sport' : state.scanSport}
+
+Be direct. Extract everything visible. If you can't read something clearly, note it.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': state.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: state.imgBase64 }},
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    const rawText = await res.text();
+    let data;
+    try { data = JSON.parse(rawText); } catch(e) { throw new Error('Bad response: ' + rawText.slice(0,200)); }
+    if (!res.ok) throw new Error(data?.error?.message || data?.error?.type || 'HTTP ' + res.status);
+    const text = data.content?.find(b => b.type === 'text')?.text || '';
+
+    document.getElementById('raw-analysis').textContent = text;
+    parseAndDisplayProps(text);
+    document.getElementById('analyzing-div').style.display = 'none';
+    document.getElementById('extracted-div').style.display = 'block';
+  } catch (err) {
+    document.getElementById('analyzing-div').style.display = 'none';
+    checkScanReady();
+    const statusEl = document.getElementById('scan-status');
+    statusEl.textContent = '⚠ Error: ' + err.message;
+    statusEl.style.color = 'var(--red)';
+    statusEl.style.display = 'block';
+  }
+
+  checkScanReady();
+}
+
+function parseAndDisplayProps(text) {
+  const list = document.getElementById('extracted-list');
+  list.innerHTML = '';
+  const blocks = text.split('---').filter(b => b.includes('PROP:'));
+
+  if (!blocks.length) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--dim);">Could not parse structured props. See raw analysis below.</div>';
+    return;
+  }
+
+  blocks.forEach((block, i) => {
+    const propLine = block.match(/PROP:\s*(.+)/)?.[1] || '';
+    const avgLine  = block.match(/AVG:\s*(.+)/)?.[1] || '';
+    const verdLine = block.match(/VERDICT:\s*(.+)/)?.[1] || '';
+    if (!propLine) return;
+
+    const parts = propLine.split('|').map(s => s.trim());
+    const [player, stat, line, dir] = parts;
+    const verd = verdLine.startsWith('LOCK') ? 'LOCK' : verdLine.startsWith('LEAN') ? 'LEAN' : 'PASS';
+    const vc = { LOCK: 'var(--green)', LEAN: 'var(--yellow)', PASS: 'var(--red)' };
+
+    const div = document.createElement('div');
+    div.className = 'extracted-prop';
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:13px;font-weight:700;color:var(--text);">${player||'?'}</span>
+        <span style="font-size:10px;font-weight:700;color:${vc[verd]};background:${vc[verd]}18;border:1px solid ${vc[verd]}55;border-radius:3px;padding:1px 7px;">${verd}</span>
+      </div>
+      <div style="font-size:18px;font-weight:700;color:var(--orange);margin-bottom:3px;">
+        ${stat||'?'} ${line||'?'} <span style="font-size:12px;color:var(--dim);">${dir||''}</span>
+      </div>
+      ${avgLine?`<div style="font-size:10px;color:var(--dim);margin-bottom:4px;">Season avg: ${avgLine}</div>`:''}
+      ${verdLine?`<div style="font-size:10px;color:${vc[verd]};line-height:1.5;">${verdLine}</div>`:''}
+      <div style="font-size:9px;color:var(--blue);margin-top:6px;letter-spacing:0.08em;">TAP TO LOAD INTO CALC →</div>
+    `;
+    div.onclick = () => {
+      document.getElementById('c-player').value = player || '';
+      document.getElementById('c-stat').value = stat || 'Points';
+      document.getElementById('c-line').value = line || '';
+      document.getElementById('c-dir').value = (dir||'').toLowerCase().includes('lower') ? 'lower' : 'higher';
+      document.querySelectorAll('.extracted-prop').forEach(el => el.classList.remove('selected'));
+      div.classList.add('selected');
+      switchTab('calc');
+    };
+    list.appendChild(div);
+  });
+}
+
+// ─── CALC ─────────────────────────────────────────────────────────────────────
+function setCalcSport(s) {
+  document.querySelectorAll('#calc-sport-btns .sport-btn').forEach(b => b.className = 'sport-btn');
+  event.target.className = 'sport-btn active';
+  state.calcSport = s;
+}
+
+function recencyWeight(vals) {
+  const w = [0.4, 0.3, 0.2, 0.1];
+  const used = vals.slice(0, 4);
+  const tw = w.slice(0, used.length).reduce((a,b)=>a+b, 0);
+  return used.reduce((s,v,i) => s + v*w[i], 0) / tw;
+}
+
+function runCalc() {
+  const raw = document.getElementById('c-log').value;
+  const nums = raw.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+  const line = parseFloat(document.getElementById('c-line').value);
+  const dir = document.getElementById('c-dir').value;
+  const player = document.getElementById('c-player').value;
+  const stat = document.getElementById('c-stat').value;
+  if (!nums.length || isNaN(line)) { alert('Enter a line and at least one game result'); return; }
+
+  const hits = nums.filter(g => dir==='higher' ? g>=line : g<=line);
+  const hr = hits.length / nums.length * 100;
+  const rwp = recencyWeight(nums);
+  const cush = dir==='higher' ? rwp-line : line-rwp;
+  const verd = hr>=75&&cush>=1.5?'LOCK':hr>=75&&cush>=0.5?'LEAN':hr>=65&&cush>=1.5?'LEAN':'PASS';
+  const vc = { LOCK:'#00E5A0', LEAN:'#FFD166', PASS:'#FF4D6D' };
+
+  const checks = [
+    { label:'Hit rate ≥ 75%', pass: hr>=75 },
+    { label:'Cushion ≥ 1.5', pass: cush>=1.5 },
+    { label:'Sample size ≥ 5 games', pass: nums.length>=5 },
+    { label:'Recency proj clears line', pass: dir==='higher'?rwp>=line:rwp<=line },
+    { label:'Recency proj clears +1.0', pass: cush>=1.0 },
+  ];
+
+  // sparkline
+  const spark = buildSparkline([...nums].reverse(), line, dir);
+
+  const html = `
+    <div class="panel" style="border-left:3px solid ${vc[verd]};border-top:1px solid ${vc[verd]}33;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:${vc[verd]};box-shadow:0 0 10px ${vc[verd]};"></div>
+          <span style="font-size:18px;font-weight:700;color:${vc[verd]};letter-spacing:0.15em;">${verd}</span>
+        </div>
+        <span style="font-size:10px;color:var(--dim);">${player||stat} ${line} ${dir.toUpperCase()}</span>
+      </div>
+      <div class="grid3" style="margin-bottom:14px;">
+        <div class="stat-box">
+          <div class="stat-val" style="color:${hr>=75?'#00E5A0':hr>=65?'#FFD166':'#FF4D6D'}">${hr.toFixed(1)}%</div>
+          <div class="stat-sub" style="color:${hr>=75?'#00E5A0':hr>=65?'#FFD166':'#FF4D6D'}">${hits.length}/${nums.length} games</div>
+          <div class="stat-label">HIT RATE</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" style="color:#4D9EFF">${rwp.toFixed(2)}</div>
+          <div class="stat-sub" style="color:#4D9EFF">40/30/20/10</div>
+          <div class="stat-label">RW PROJ</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" style="color:${cush>=1.5?'#00E5A0':cush>=0.5?'#FFD166':'#FF4D6D'}">${cush.toFixed(2)}</div>
+          <div class="stat-sub" style="color:${cush>=1.5?'#00E5A0':cush>=0.5?'#FFD166':'#FF4D6D'}">${cush>=1.5?'STRONG':cush>=0.5?'THIN':'NEGATIVE'}</div>
+          <div class="stat-label">CUSHION</div>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div class="label" style="margin-bottom:8px;">FRAMEWORK CHECKS</div>
+        ${checks.map(c=>`
+          <div class="check-row">
+            <span style="color:${c.pass?'#00E5A0':'#FF4D6D'};font-weight:700;width:14px;flex-shrink:0;">${c.pass?'✓':'✗'}</span>
+            <span style="color:${c.pass?'var(--text)':'var(--dim)'};">${c.label}</span>
+          </div>`).join('')}
+      </div>
+      <div>
+        <div class="label" style="margin-bottom:6px;">GAME LOG — ${nums.length} GAMES</div>
+        ${spark}
+        <div style="display:flex;gap:14px;margin-top:6px;font-size:8px;color:var(--dim);">
+          <span><span style="color:#00E5A0">● </span>HIT</span>
+          <span><span style="color:#FF4D6D">● </span>MISS</span>
+          <span style="color:var(--border2);">— LINE AT ${line}</span>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <button onclick="addFromCalc('${player}','${state.calcSport}','${stat}',${line},'${dir}','${hr.toFixed(0)}%','${cush.toFixed(2)}','${verd}')"
+          style="background:${vc[verd]};color:var(--bg);padding:8px 16px;font-size:10px;border-radius:5px;letter-spacing:0.1em;">
+          + ADD TO CARD
+        </button>
+      </div>
+    </div>`;
+
+  const el = document.getElementById('calc-result');
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+function buildSparkline(values, line, dir) {
+  if (values.length < 2) return '<div style="color:var(--dim);font-size:10px;">Need 2+ games for sparkline</div>';
+  const W=220,H=54,P=8;
+  const all=[...values,line], mn=Math.min(...all)-0.5, mx=Math.max(...all)+0.5;
+  const sx=i=>P+(i/(values.length-1))*(W-P*2);
+  const sy=v=>H-P-((v-mn)/(mx-mn||1))*(H-P*2);
+  const ly=sy(line);
+  const pts=values.map((v,i)=>`${sx(i)},${sy(v)}`).join(' ');
+  const dots=values.map((v,i)=>{
+    const hit=dir==='higher'?v>=line:v<=line;
+    return `<circle cx="${sx(i)}" cy="${sy(v)}" r="3.5" fill="${hit?'#00E5A0':'#FF4D6D'}" stroke="#060810" stroke-width="1"/>`;
+  }).join('');
+  return `<svg width="${W}" height="${H}">
+    <line x1="${P}" y1="${ly}" x2="${W-P}" y2="${ly}" stroke="#1E2235" stroke-width="1.5" stroke-dasharray="5 3"/>
+    <polyline points="${pts}" fill="none" stroke="#4D9EFF" stroke-width="1.5" stroke-linejoin="round"/>
+    ${dots}
+  </svg>`;
+}
+
+function addFromCalc(player, sport, stat, line, dir, hr, cush, verd) {
+  state.card.push({ id: Date.now(), player, sport, stat, line, dir, hitRate: hr, cushion: cush, verdict: verd, notes: '', result: null });
+  renderCard();
+  switchTab('card');
+}
+
+// ─── PARK FACTOR ─────────────────────────────────────────────────────────────
+function updatePark() {
+  const sel = document.getElementById('park-select').value;
+  const custom = parseFloat(document.getElementById('park-custom').value);
+  let pf, note;
+  if (!isNaN(custom) && custom > 0) { pf=custom; note='Custom factor entered'; }
+  else if (sel) { const parts=sel.split('|'); pf=parseFloat(parts[0]); note=parts[1]; }
+  else { document.getElementById('park-result').innerHTML=''; return; }
+
+  const c = pf>1.05?'var(--red)':pf<0.95?'var(--green)':'var(--yellow)';
+  const label = pf>1.1?'VERY HITTER FRIENDLY':pf>1.05?'HITTER FRIENDLY':pf<0.9?'VERY PITCHER FRIENDLY':pf<0.95?'PITCHER FRIENDLY':'NEUTRAL';
+
+  const impacts = [
+    ['K Props (Over)',   pf>1.05?'NEGATIVE':'POSITIVE', pf>1.05?'Hitter park suppresses Ks':'Pitcher park elevates Ks'],
+    ['K Props (Under)',  pf>1.05?'POSITIVE':'NEGATIVE', pf>1.05?'Early hook = fewer Ks':'Deeper outings = more Ks'],
+    ['Outs Props (Over)',pf>1.05?'NEGATIVE':'POSITIVE', pf>1.05?'Early hook risk':'Clean outings more likely'],
+    ['Hit Props (Over)', pf>1.05?'POSITIVE':'NEGATIVE', pf>1.05?'Elevated contact environment':'Suppressed contact'],
+    ['HR Props (Over)',  pf>1.08?'POSITIVE':pf<0.95?'NEGATIVE':'NEUTRAL', pf>1.08?'HR-friendly park':pf<0.95?'Suppresses HRs':'Neutral HR environment'],
+  ].map(([prop,imp,detail])=>`
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);gap:10px;">
+      <span style="font-size:10px;color:var(--dim);min-width:130px;">${prop}</span>
+      <div style="text-align:right;">
+        <div style="font-size:10px;font-weight:700;color:${imp==='POSITIVE'?'var(--green)':imp==='NEGATIVE'?'var(--red)':'var(--dim)'};">${imp}</div>
+        <div style="font-size:9px;color:var(--dim);">${detail}</div>
+      </div>
+    </div>`).join('');
+
+  const adj = pf>=1.1?'⚠ Extreme hitter park — add +0.5 to required cushion for all pitcher props. Outs require +3.0 minimum.':
+              pf>=1.05?'⚠ Hitter-friendly — add +0.25 to required cushion for pitcher K and outs props.':
+              pf<=0.92?'✓ Strong pitcher park — standard cushion rules apply. Slight edge on pitcher props.':
+              '✓ Neutral park — standard cushion requirements apply.';
+
+  document.getElementById('park-result').innerHTML = `
+    <div class="panel" style="border-left:3px solid ${c};">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <div style="font-size:36px;font-weight:700;color:${c};">${pf.toFixed(2)}</div>
+        <div>
+          <span style="background:${c}18;border:1px solid ${c}55;border-radius:3px;padding:2px 8px;font-size:10px;font-weight:700;color:${c};">${label}</span>
+          <div style="font-size:10px;color:var(--dim);margin-top:6px;">${note}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;"><div class="label" style="margin-bottom:8px;">PROP IMPACT</div>${impacts}</div>
+      <div style="background:var(--bg);border-radius:6px;padding:12px;border:1px solid var(--border);">
+        <div class="label" style="color:var(--orange);margin-bottom:6px;">CUSHION ADJUSTMENT</div>
+        <div style="font-size:10px;color:var(--text);line-height:1.7;">${adj}</div>
+      </div>
+    </div>`;
+}
+
+// ─── CARD ─────────────────────────────────────────────────────────────────────
+let formVerdict = 'LOCK';
+function setFormVerdict(v) {
+  formVerdict = v;
+  ['LOCK','LEAN','PASS'].forEach(x => {
+    const vc2={'LOCK':'var(--green)','LEAN':'var(--yellow)','PASS':'var(--red)'};
+    const btn=document.getElementById('fv-'+x);
+    if (x===v) { btn.style.background=`${vc2[x].replace(')',',0.15)').replace('var(--green','rgba(0,229,160').replace('var(--yellow','rgba(255,209,102').replace('var(--red','rgba(255,77,109')}`; btn.style.borderColor=vc2[x]; btn.style.color=vc2[x]; }
+    else { btn.style.background='var(--bg)'; btn.style.borderColor='var(--border2)'; btn.style.color='var(--dim)'; }
+  });
+}
+
+function toggleAddForm() {
+  const f=document.getElementById('add-form');
+  f.style.display=f.style.display==='none'?'block':'none';
+}
+
+function addToCard() {
+  const player=document.getElementById('f-player').value.trim();
+  const stat=document.getElementById('f-stat').value.trim();
+  const line=document.getElementById('f-line').value.trim();
+  if (!player||!stat||!line) { alert('Player, stat and line required'); return; }
+  state.card.push({
+    id:Date.now(), player, sport:document.getElementById('f-sport').value,
+    stat, line:parseFloat(line), dir:document.getElementById('f-dir').value,
+    hitRate:document.getElementById('f-hr').value, cushion:document.getElementById('f-cush').value,
+    verdict:formVerdict, notes:document.getElementById('f-notes').value, result:null
+  });
+  document.getElementById('add-form').style.display='none';
+  ['f-player','f-stat','f-line','f-hr','f-cush','f-notes'].forEach(id=>document.getElementById(id).value='');
+  renderCard();
+}
+
+function settleCard(id, res) {
+  state.card = state.card.map(p => p.id===id ? {...p, result:res} : p);
+  if (res==='WIN') state.record.w++;
+  else state.record.l++;
+  updateRecord();
+  renderCard();
+}
+
+function removeCard(id) {
+  state.card = state.card.filter(p => p.id!==id);
+  renderCard();
+}
+
+function updateRecord() {
+  document.getElementById('rec-w').textContent = state.record.w;
+  document.getElementById('rec-l').textContent = state.record.l;
+  const total = state.record.w + state.record.l;
+  if (total > 0) {
+    const pct = Math.round(state.record.w/total*100);
+    document.getElementById('rec-pct').textContent = pct+'%';
+    document.getElementById('rec-pct').style.color = pct>=55?'var(--green)':'var(--red)';
+    document.getElementById('rec-pct-box').style.borderColor = pct>=55?'rgba(0,229,160,0.3)':'rgba(255,77,109,0.3)';
+    document.getElementById('rec-pct-box').style.background = pct>=55?'rgba(0,229,160,0.1)':'rgba(255,77,109,0.1)';
+    document.getElementById('rec-pct-box').style.display = 'block';
+  }
+}
+
+function renderCard() {
+  const pending = state.card.filter(p=>!p.result);
+  const settled = state.card.filter(p=>p.result);
+  const vc={'LOCK':'#00E5A0','LEAN':'#FFD166','PASS':'#FF4D6D'};
+  const sc={'MLB':'#4ECDC4','NBA':'#FF6B35','WNBA':'#FF6B9D','NFL':'#45B7D1','NHL':'#96CEB4'};
+
+  document.getElementById('card-empty').style.display = pending.length===0&&!document.getElementById('add-form').style.display==='block'?'block':'none';
+
+  document.getElementById('card-list').innerHTML = pending.map(p=>`
+    <div class="prop-card" style="border-left-color:${vc[p.verdict]||'#888'};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:14px;font-weight:700;color:var(--text);">${p.player}</span>
+          <span style="background:${sc[p.sport]||'#888'}22;border:1px solid ${sc[p.sport]||'#888'}55;color:${sc[p.sport]||'#888'};padding:1px 6px;font-size:9px;font-weight:700;border-radius:3px;">${p.sport}</span>
+          <span style="background:${vc[p.verdict]||'#888'}18;border:1px solid ${vc[p.verdict]||'#888'}55;color:${vc[p.verdict]||'#888'};padding:1px 6px;font-size:9px;font-weight:700;border-radius:3px;">${p.verdict}</span>
+        </div>
+        <button onclick="removeCard(${p.id})" style="background:transparent;border:none;color:var(--dim);font-size:16px;line-height:1;cursor:pointer;padding:0;">×</button>
+      </div>
+      <div style="font-size:20px;font-weight:700;color:var(--orange);margin-bottom:6px;">
+        ${p.stat} ${p.line} <span style="font-size:13px;color:var(--dim);">${p.dir==='higher'?'HIGHER':'LOWER'}</span>
+      </div>
+      <div style="display:flex;gap:14px;margin-bottom:${p.notes?8:12}px;">
+        ${p.hitRate?`<span style="font-size:10px;color:var(--green);">HIT RATE: ${p.hitRate}</span>`:''}
+        ${p.cushion?`<span style="font-size:10px;color:var(--yellow);">CUSHION: ${p.cushion}</span>`:''}
+      </div>
+      ${p.notes?`<div style="font-size:10px;color:var(--dim);margin-bottom:10px;line-height:1.5;">${p.notes}</div>`:''}
+      <div style="display:flex;gap:6px;">
+        <button onclick="settleCard(${p.id},'WIN')" style="flex:1;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.4);color:var(--green);padding:7px;font-size:11px;border-radius:5px;">✓ WIN</button>
+        <button onclick="settleCard(${p.id},'LOSS')" style="flex:1;background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.4);color:var(--red);padding:7px;font-size:11px;border-radius:5px;">✗ LOSS</button>
+      </div>
+    </div>`).join('');
+
+  if (settled.length) {
+    document.getElementById('settled-section').style.display='block';
+    document.getElementById('settled-list').innerHTML = settled.map(p=>`
+      <div style="background:var(--panel);border:1px solid ${p.result==='WIN'?'rgba(0,229,160,0.2)':'rgba(255,77,109,0.2)'};border-left:3px solid ${p.result==='WIN'?'var(--green)':'var(--red)'};border-radius:6px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <span style="font-size:12px;font-weight:700;color:var(--text);">${p.player}</span>
+          <span style="font-size:11px;color:var(--dim);margin-left:10px;">${p.stat} ${p.line} ${p.dir==='higher'?'HIGHER':'LOWER'}</span>
+        </div>
+        <span style="background:${p.result==='WIN'?'rgba(0,229,160,0.15)':'rgba(255,77,109,0.15)'};border:1px solid ${p.result==='WIN'?'rgba(0,229,160,0.4)':'rgba(255,77,109,0.4)'};color:${p.result==='WIN'?'var(--green)':'var(--red)'};padding:2px 8px;font-size:10px;font-weight:700;border-radius:3px;">${p.result}</span>
+      </div>`).join('');
+  } else {
+    document.getElementById('settled-section').style.display='none';
+  }
+}
+
+// ─── SCANNER ──────────────────────────────────────────────────────────────────
+let scannerState = {
+  sport: 'ALL',
+  running: false,
+  interval: null,
+  alerts: [],
+  allProps: [],
+  lastUpdate: null,
+};
+
+// Known 2026 season averages for sharp value detection
+const KNOWN_AVGS = {
+  // MLB pitchers - strikeouts per start
+  'Zack Wheeler': { stat: 'Strikeouts', avg: 7.2 },
+  'Max Meyer': { stat: 'Strikeouts', avg: 6.2 },
+  'MacKenzie Gore': { stat: 'Strikeouts', avg: 5.5 },
+  'Grant Holmes': { stat: 'Strikeouts', avg: 4.2 },
+  'Grant Holmes_Walks Allowed': { stat: 'Walks Allowed', avg: 2.3 },
+  'Spencer Arrighetti': { stat: 'Strikeouts', avg: 5.5 },
+  // NBA players
+  'Isaiah Hartenstein': { stat: 'Points+Rebounds+Assists', avg: 21.5 },
+  "De'Aaron Fox": { stat: 'Rebounds+Assists', avg: 11.1 },
+  'Caitlin Clark': { stat: 'Assists', avg: 9.0 },
+  'Paige Bueckers': { stat: 'Points', avg: 22.1 },
+};
+
+function setScannerSport(s) {
+  ['ALL','MLB','NBA','WNBA','NFL'].forEach(x => {
+    const btn = document.getElementById('ss-'+x);
+    if (!btn) return;
+    if (x === s) {
+      btn.style.borderColor = '#FF6B35';
+      btn.style.color = '#FF6B35';
+      btn.style.background = 'rgba(255,107,53,0.1)';
+    } else {
+      btn.style.borderColor = 'var(--border2)';
+      btn.style.color = 'var(--dim)';
+      btn.style.background = 'var(--bg)';
+    }
+  });
+  scannerState.sport = s;
+  if (scannerState.allProps.length) filterScannerProps();
+}
+
+function startScanner() {
+  scannerState.running = true;
+  document.getElementById('scanner-start-btn').disabled = true;
+  document.getElementById('scanner-start-btn').style.opacity = '0.5';
+  document.getElementById('scanner-stop-btn').disabled = false;
+  document.getElementById('scanner-stop-btn').style.color = 'var(--red)';
+  document.getElementById('scanner-stop-btn').style.borderColor = 'var(--red)';
+  updateScannerStatus('🔄 Fetching live props...', '#FF6B35');
+  fetchScannerProps();
+  scannerState.interval = setInterval(fetchScannerProps, 30 * 60 * 1000); // every 30 min
+}
+
+function stopScanner() {
+  scannerState.running = false;
+  clearInterval(scannerState.interval);
+  document.getElementById('scanner-start-btn').disabled = false;
+  document.getElementById('scanner-start-btn').style.opacity = '1';
+  document.getElementById('scanner-stop-btn').disabled = true;
+  document.getElementById('scanner-stop-btn').style.color = 'var(--dim)';
+  document.getElementById('scanner-stop-btn').style.borderColor = 'var(--border2)';
+  updateScannerStatus('■ Scanner stopped', 'var(--dim)');
+}
+
+function updateScannerStatus(msg, color) {
+  const el = document.getElementById('scanner-status');
+  el.textContent = msg;
+  el.style.color = color || 'var(--dim)';
+}
+
+async function fetchScannerProps() {
+  updateScannerStatus('🔄 Pulling live props from Sharp Server...', '#FF6B35');
+  try {
+    // Wake up server first then fetch props
+    updateScannerStatus('🔄 Waking up server...', '#FF6B35');
+    try {
+      await fetch('https://sharp-model-production.up.railway.app/health', { mode: 'cors' });
+    } catch(e) { /* ignore wake ping errors */ }
+
+    updateScannerStatus('🔄 Pulling live props...', '#FF6B35');
+    // Use AbortController for timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let data;
+    try {
+      const res = await fetch('https://sharp-model-production.up.railway.app/props', {
+        method: 'GET',
+        signal: controller.signal,
+        cache: 'no-cache',
+      });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      data = await res.json();
+    } catch(e) {
+      clearTimeout(timeout);
+      if (e.name === 'AbortError') throw new Error('Server timeout — tap Start Scanning again');
+      throw e;
+    }
+
+    const props = (data.props || []).filter(p => p.line > 0);
+
+    scannerState.allProps = props;
+    scannerState.lastUpdate = new Date();
+
+    const count = props.length;
+    updateScannerStatus(`✓ ${count} live props loaded — refreshes every 30 min`, 'var(--green)');
+    document.getElementById('scanner-last-update').textContent = 'Server updated: ' + (data.lastFetch ? new Date(data.lastFetch).toLocaleTimeString() : 'just now');
+    document.getElementById('scanner-count').textContent = count;
+    document.getElementById('scanner-all-section').style.display = 'block';
+
+    detectSharpValue(props);
+    filterScannerProps();
+
+  } catch (err) {
+    const msg = err.message || String(err);
+    updateScannerStatus('⚠ ' + msg, 'var(--red)');
+    document.getElementById('scanner-all-section').style.display = 'block';
+    document.getElementById('scanner-props-list').innerHTML = `<div style="font-size:11px;color:var(--red);padding:12px;line-height:1.7;">
+      <strong>Error details:</strong> ${msg}<br><br>
+      Server health: <a href="https://sharp-model-production.up.railway.app/health" target="_blank" style="color:var(--blue);">tap to check</a>
+    </div>`;
+  }
+}
+
+function corsNote() {
+  return `<div style="background:rgba(255,209,102,0.08);border:1px solid rgba(255,209,102,0.3);border-radius:8px;padding:16px;font-size:11px;line-height:1.8;color:var(--text);">
+    <div style="color:var(--yellow);font-weight:700;margin-bottom:8px;font-size:10px;letter-spacing:0.1em;">⚡ SCANNER STATUS</div>
+    PrizePicks blocks direct browser requests (CORS). The scanner found your props but can't pull them automatically yet.<br><br>
+    <strong style="color:var(--green);">Best workflow right now:</strong><br>
+    1. Open Underdog or PrizePicks on your phone<br>
+    2. Screenshot any player card<br>
+    3. Upload to the <strong>SCAN tab</strong> — Claude reads every line instantly<br>
+    4. Tap any prop to load into the calculator<br><br>
+    <strong style="color:#FF6B35;">Coming next:</strong> Background scanner that runs 24/7 and pushes alerts to your phone — building that as the next upgrade.
+  </div>`;
+}
+
+function detectSharpValue(props) {
+
+  const alerts = [];
+
+  props.forEach(p => {
+    const signals = [];
+    let score = 0;
+
+    // Check known averages
+    const key = p.player + '_' + p.stat;
+    const known = KNOWN_AVGS[p.player] || KNOWN_AVGS[key];
+    if (known && known.stat === p.stat) {
+      const cushion = known.avg - p.line;
+      if (Math.abs(cushion) >= 1.0) {
+        signals.push(cushion > 0 ? `Avg ${known.avg} vs line ${p.line} — over has +${cushion.toFixed(1)} cushion` : `Avg ${known.avg} vs line ${p.line} — under has +${Math.abs(cushion).toFixed(1)} cushion`);
+        score += 2;
+      }
+    }
+
+    // Flash sale = line moved = value signal
+    if (p.flash && p.flash !== p.line) {
+      signals.push(`Flash sale line: ${p.flash} vs standard: ${p.line} — line movement detected`);
+      score += 2;
+    }
+
+    // Promo = book highlighting = sharp attention
+    if (p.isPromo) {
+      signals.push('Book promo — elevated visibility prop');
+      score += 1;
+    }
+
+    if (score >= 2 && signals.length) {
+      alerts.push({ ...p, signals, score });
+    }
+  });
+
+  alerts.sort((a, b) => b.score - a.score);
+  scannerState.alerts = alerts;
+  renderAlerts(alerts);
+}
+
+function renderAlerts(alerts) {
+  const section = document.getElementById('scanner-alerts-section');
+  const list = document.getElementById('scanner-alerts');
+
+  if (!alerts.length) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  list.innerHTML = alerts.slice(0, 10).map(a => `
+    <div style="background:var(--panel);border:1px solid rgba(255,107,53,0.3);border-left:3px solid #FF6B35;border-radius:8px;padding:12px 14px;margin-bottom:8px;cursor:pointer;"
+      onclick="loadAlertToCalc('${a.player.replace(/'/g,"\'")}','${a.stat}',${a.line},'${a.sport}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:13px;font-weight:700;color:var(--text);">${a.player}</span>
+        <span style="background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.4);color:#FF6B35;padding:1px 7px;font-size:9px;font-weight:700;border-radius:3px;">${a.sport}</span>
+      </div>
+      <div style="font-size:18px;font-weight:700;color:#FF6B35;margin-bottom:6px;">${a.stat} ${a.line}</div>
+      ${a.signals.map(s => `<div style="font-size:10px;color:var(--green);margin-bottom:2px;">⚡ ${s}</div>`).join('')}
+      <div style="font-size:9px;color:var(--blue);margin-top:6px;letter-spacing:0.08em;">TAP TO LOAD INTO CALC →</div>
+    </div>`).join('');
+}
+
+function loadAlertToCalc(player, stat, line, sport) {
+  document.getElementById('c-player').value = player;
+  document.getElementById('c-stat').value = stat;
+  document.getElementById('c-line').value = line;
+  switchTab('calc');
+}
+
+function filterScannerProps() {
+  const search = (document.getElementById('scanner-search')?.value || '').toLowerCase();
+  const sport = scannerState.sport;
+  let filtered = scannerState.allProps;
+
+  if (sport !== 'ALL') filtered = filtered.filter(p => p.sport === sport);
+  if (search) filtered = filtered.filter(p =>
+    p.player.toLowerCase().includes(search) || p.stat.toLowerCase().includes(search)
+  );
+
+  const sc = { MLB:'#4ECDC4', NBA:'#FF6B35', WNBA:'#FF6B9D', NFL:'#45B7D1', NHL:'#96CEB4' };
+  const list = document.getElementById('scanner-props-list');
+
+  if (!filtered.length) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--dim);text-align:center;padding:20px;">No props match current filters</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.slice(0, 100).map(p => `
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;"
+      onclick="loadAlertToCalc('${p.player.replace(/'/g,"\'")}','${p.stat}',${p.line},'${p.sport}')">
+      <div>
+        <span style="font-size:12px;font-weight:700;color:var(--text);">${p.player}</span>
+        <span style="margin-left:6px;background:${sc[p.sport]||'#888'}22;border:1px solid ${sc[p.sport]||'#888'}55;color:${sc[p.sport]||'#888'};padding:1px 5px;font-size:8px;font-weight:700;border-radius:2px;">${p.sport}</span>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:16px;font-weight:700;color:#FF6B35;">${p.line}</div>
+        <div style="font-size:9px;color:var(--dim);">${p.stat}</div>
+      </div>
+    </div>`).join('');
+}
+
+function clearAlerts() {
+  scannerState.alerts = [];
+  document.getElementById('scanner-alerts-section').style.display = 'none';
+  document.getElementById('scanner-alerts').innerHTML = '';
+}
+
+</script>
+</body>
+</html>
